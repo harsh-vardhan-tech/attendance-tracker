@@ -1,14 +1,13 @@
 // script.js
-// Subjects & Sections manager (stores data in localStorage)
-// Data shape:
-// subjects = [{ id, name, sections: [{ id, name }] }, ...]
-// selectedSubjectId stored separately so selection persists
+// Subjects, Sections & Students manager (stored in localStorage)
 
 const LS_KEY = 'attendance_subjects_v1';
 const LS_SEL = 'attendance_selected_subject_v1';
+const LS_SEC = 'attendance_selected_section_v1';
 
 let subjects = [];
 let selectedSubjectId = null;
+let selectedSectionId = null;
 
 // UI refs
 const newSubjectName = document.getElementById('newSubjectName');
@@ -34,11 +33,14 @@ function load() {
     subjects = [];
   }
   selectedSubjectId = localStorage.getItem(LS_SEL);
+  selectedSectionId = localStorage.getItem(LS_SEC);
 }
 function save() {
   localStorage.setItem(LS_KEY, JSON.stringify(subjects));
   if (selectedSubjectId) localStorage.setItem(LS_SEL, selectedSubjectId);
   else localStorage.removeItem(LS_SEL);
+  if (selectedSectionId) localStorage.setItem(LS_SEC, selectedSectionId);
+  else localStorage.removeItem(LS_SEC);
 }
 
 // ----- helpers -----
@@ -118,6 +120,7 @@ function renderSections() {
     li.className = 'muted';
     li.textContent = 'Select a subject to see its sections.';
     sectionsList.appendChild(li);
+    renderStudents();
     return;
   }
 
@@ -128,6 +131,7 @@ function renderSections() {
     li.className = 'muted';
     li.textContent = 'No sections yet. Add a section below.';
     sectionsList.appendChild(li);
+    renderStudents();
     return;
   }
 
@@ -143,25 +147,34 @@ function renderSections() {
       e.stopPropagation();
       if (!confirm(`Remove section "${sec.name}" from subject "${subject.name}"?`)) return;
       subject.sections = subject.sections.filter(x => x.id !== sec.id);
-      save(); renderSections(); renderSubjects();
+      if (selectedSectionId === sec.id) selectedSectionId = null;
+      save(); renderSections(); renderStudents();
     });
 
-    // future: click to open students of this section
+    // click to select this section
     nameEl.style.cursor = 'pointer';
     nameEl.addEventListener('click', () => {
-      // we'll implement section-level students in next steps
-      alert(`Open students for section "${sec.name}" (next step).`);
+      selectedSectionId = sec.id;
+      save();
+      renderSections();
+      renderStudents();
     });
+
+    if (sec.id === selectedSectionId) {
+      li.style.background = 'linear-gradient(90deg, rgba(59,130,246,0.12), transparent)';
+      nameEl.style.fontWeight = '700';
+    }
 
     sectionsList.appendChild(node);
   });
+
+  renderStudents();
 }
 
 // ----- actions -----
 function addSubject() {
   const name = (newSubjectName.value || '').trim();
   if (!name) { alert('Enter subject name'); return; }
-  // prevent duplicate names
   if (subjects.some(s => s.name.toLowerCase() === name.toLowerCase())) {
     alert('Subject with this name already exists');
     return;
@@ -176,6 +189,7 @@ function addSubject() {
 
 function selectSubject(id) {
   selectedSubjectId = id;
+  selectedSectionId = null;
   save();
   renderSubjects();
   renderSections();
@@ -191,12 +205,88 @@ function addSection() {
     alert('Section with this name already exists in selected subject');
     return;
   }
-  subj.sections.push({ id: uid('sec'), name });
+  subj.sections.push({ id: uid('sec'), name, students: [] });
   newSectionName.value = '';
   save();
   renderSections();
   renderSubjects();
 }
+
+// ----- Students -----
+const studentRoll = document.getElementById('studentRoll');
+const studentName = document.getElementById('studentName');
+const addStudentBtn = document.getElementById('addStudentBtn');
+const studentsList = document.getElementById('studentsList');
+
+function renderStudents() {
+  studentsList.innerHTML = '';
+  const subj = findSubject(selectedSubjectId);
+  if (!subj) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'Select a subject first.';
+    studentsList.appendChild(li);
+    return;
+  }
+  const sec = subj.sections.find(x => x.id === selectedSectionId);
+  if (!sec) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'Select a section to see students.';
+    studentsList.appendChild(li);
+    return;
+  }
+  if (!sec.students || sec.students.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No students in this section yet.';
+    studentsList.appendChild(li);
+    return;
+  }
+
+  sec.students.forEach(st => {
+    const li = document.createElement('li');
+    li.className = 'item-row';
+    li.innerHTML = `
+      <span class="item-name">${st.roll} — ${st.name}</span>
+      <span class="item-actions">
+        <button class="btn small danger">Remove</button>
+      </span>
+    `;
+    li.querySelector('button').addEventListener('click', () => {
+      if (!confirm(`Remove student ${st.name}?`)) return;
+      sec.students = sec.students.filter(x => x.id !== st.id);
+      save(); renderStudents();
+    });
+    studentsList.appendChild(li);
+  });
+}
+
+function addStudent() {
+  const roll = (studentRoll.value || '').trim();
+  const name = (studentName.value || '').trim();
+  if (!roll || !name) {
+    alert('Enter both roll no and name');
+    return;
+  }
+  const subj = findSubject(selectedSubjectId);
+  if (!subj) { alert('Select a subject first'); return; }
+  const sec = subj.sections.find(x => x.id === selectedSectionId);
+  if (!sec) { alert('Select a section first'); return; }
+  if (!sec.students) sec.students = [];
+  if (sec.students.some(s => s.roll === roll)) {
+    alert('Roll no already exists in this section');
+    return;
+  }
+  sec.students.push({ id: uid('stu'), roll, name });
+  studentRoll.value = '';
+  studentName.value = '';
+  save(); renderStudents();
+}
+
+addStudentBtn.addEventListener('click', addStudent);
+studentRoll.addEventListener('keydown', (e) => { if (e.key==='Enter') addStudent(); });
+studentName.addEventListener('keydown', (e) => { if (e.key==='Enter') addStudent(); });
 
 // ----- bindings -----
 addSubjectBtn.addEventListener('click', addSubject);
