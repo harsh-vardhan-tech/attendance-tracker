@@ -19,14 +19,10 @@
     <aside class="sidebar">
       <div class="card">
         <h3>Subjects</h3>
-
-        <!-- Add new subject -->
         <div class="form-row">
           <input id="newSubjectName" placeholder="New subject name (eg. DSA)" />
           <button id="addSubjectBtn" class="btn">Add</button>
         </div>
-
-        <!-- Subjects list -->
         <ul id="subjectsList" class="simple-list"></ul>
       </div>
 
@@ -35,34 +31,32 @@
         <div id="selectedSubjectName" class="muted">None</div>
         <hr/>
         <h4>Sections</h4>
-
-        <!-- Add section to selected subject -->
         <div class="form-row">
           <input id="newSectionName" placeholder="Section name (eg. A)" />
           <button id="addSectionBtn" class="btn">Add</button>
         </div>
-
-        <!-- Sections list -->
         <ul id="sectionsList" class="simple-list"></ul>
       </div>
     </aside>
 
-    <!-- RIGHT: Placeholder for next steps (students / attendance) -->
+    <!-- RIGHT: Main content -->
     <section class="mainpanel">
       <div class="card">
         <h2>Subject / Section Manager</h2>
         <p class="muted">
-          Step 1: Subjects & Sections UI is ready. <br/>
-          Next step will add the logic (save, load, select subject, add/remove section) — press <strong>Next</strong> when ready.
+          You can manage subjects, sections, and students here.
         </p>
+      </div>
 
-        <div class="hint">
-          <strong>Notes:</strong>
-          <ul>
-            <li>Subjects and Sections will be stored in browser's localStorage (no backend).</li>
-            <li>After you paste JS (next step) you will be able to click a subject to select it and manage its sections.</li>
-          </ul>
+      <div class="card">
+        <h2>Students (per Section)</h2>
+        <p class="muted">Select a Section to view/add students.</p>
+        <div class="form-row">
+          <input id="studentRoll" placeholder="Roll No" style="max-width:100px" />
+          <input id="studentName" placeholder="Student Name" />
+          <button id="addStudentBtn" class="btn">Add</button>
         </div>
+        <ul id="studentsList" class="simple-list"></ul>
       </div>
 
       <div class="card footer-card">
@@ -75,7 +69,7 @@
     </section>
   </main>
 
-  <!-- Minimal template elements (used by JS later) -->
+  <!-- Templates -->
   <template id="subjectTpl">
     <li class="item-row">
       <span class="item-name"></span>
