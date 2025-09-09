@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student Attendance Tracker</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>🎓 Student Attendance Tracker</h1>
+    <button id="toggleMode">🌙 Toggle Dark Mode</button>
+  </header>
+
+  <main>
+    <section class="form-section">
+      <h2>Add Student</h2>
+      <input type="text" id="roll" placeholder="Roll Number"/>
+      <input type="text" id="name" placeholder="Student Name"/>
+      <button id="addStudent">➕ Add Student</button>
+    </section>
+
+    <section class="table-section">
+      <h2>Attendance List</h2>
+      <input type="text" id="search" placeholder="Search by Roll/Name"/>
+      <button id="sortByRoll">Sort by Roll</button>
+      <button id="sortByAttendance">Sort by %</button>
+      <button id="exportCSV">📥 Export CSV</button>
+
+      <table id="studentTable">
+        <thead>
+          <tr>
+            <th>Roll No</th>
+            <th>Name</th>
+            <th>Attendance</th>
+            <th>Total</th>
+            <th>%</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    <p>Made with ❤️ by Harsh Vardhan</p>
+    <p>
+      <a href="https://github.com/harsh-vardhan-tech" target="_blank">GitHub</a> | 
+      <a href="https://in.linkedin.com/in/harsh-vardhan-tech" target="_blank">LinkedIn</a>
+    </p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
