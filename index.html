@@ -1,55 +1,99 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Student Attendance Tracker</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Attendance Tracker — Subjects & Sections</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <h1>🎓 Student Attendance Tracker</h1>
-    <button id="toggleMode">🌙 Toggle Dark Mode</button>
+  <header class="topbar">
+    <div class="brand">Attendance Tracker</div>
+    <div class="actions">
+      <button id="darkToggle" class="btn small">Dark</button>
+    </div>
   </header>
 
-  <main>
-    <section class="form-section">
-      <h2>Add Student</h2>
-      <input type="text" id="roll" placeholder="Roll Number"/>
-      <input type="text" id="name" placeholder="Student Name"/>
-      <button id="addStudent">➕ Add Student</button>
-    </section>
+  <main class="container">
+    <!-- LEFT: Subjects & Sections -->
+    <aside class="sidebar">
+      <div class="card">
+        <h3>Subjects</h3>
 
-    <section class="table-section">
-      <h2>Attendance List</h2>
-      <input type="text" id="search" placeholder="Search by Roll/Name"/>
-      <button id="sortByRoll">Sort by Roll</button>
-      <button id="sortByAttendance">Sort by %</button>
-      <button id="exportCSV">📥 Export CSV</button>
+        <!-- Add new subject -->
+        <div class="form-row">
+          <input id="newSubjectName" placeholder="New subject name (eg. DSA)" />
+          <button id="addSubjectBtn" class="btn">Add</button>
+        </div>
 
-      <table id="studentTable">
-        <thead>
-          <tr>
-            <th>Roll No</th>
-            <th>Name</th>
-            <th>Attendance</th>
-            <th>Total</th>
-            <th>%</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+        <!-- Subjects list -->
+        <ul id="subjectsList" class="simple-list"></ul>
+      </div>
+
+      <div class="card small">
+        <h4>Selected Subject</h4>
+        <div id="selectedSubjectName" class="muted">None</div>
+        <hr/>
+        <h4>Sections</h4>
+
+        <!-- Add section to selected subject -->
+        <div class="form-row">
+          <input id="newSectionName" placeholder="Section name (eg. A)" />
+          <button id="addSectionBtn" class="btn">Add</button>
+        </div>
+
+        <!-- Sections list -->
+        <ul id="sectionsList" class="simple-list"></ul>
+      </div>
+    </aside>
+
+    <!-- RIGHT: Placeholder for next steps (students / attendance) -->
+    <section class="mainpanel">
+      <div class="card">
+        <h2>Subject / Section Manager</h2>
+        <p class="muted">
+          Step 1: Subjects & Sections UI is ready. <br/>
+          Next step will add the logic (save, load, select subject, add/remove section) — press <strong>Next</strong> when ready.
+        </p>
+
+        <div class="hint">
+          <strong>Notes:</strong>
+          <ul>
+            <li>Subjects and Sections will be stored in browser's localStorage (no backend).</li>
+            <li>After you paste JS (next step) you will be able to click a subject to select it and manage its sections.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card footer-card">
+        <p>Made with ❤️ by Harsh Vardhan</p>
+        <p>
+          <a href="https://github.com/harsh-vardhan-tech" target="_blank">GitHub</a> |
+          <a href="https://in.linkedin.com/in/harsh-vardhan-tech" target="_blank">LinkedIn</a>
+        </p>
+      </div>
     </section>
   </main>
 
-  <footer>
-    <p>Made with ❤️ by Harsh Vardhan</p>
-    <p>
-      <a href="https://github.com/harsh-vardhan-tech" target="_blank">GitHub</a> | 
-      <a href="https://in.linkedin.com/in/harsh-vardhan-tech" target="_blank">LinkedIn</a>
-    </p>
-  </footer>
+  <!-- Minimal template elements (used by JS later) -->
+  <template id="subjectTpl">
+    <li class="item-row">
+      <span class="item-name"></span>
+      <span class="item-actions">
+        <button class="btn small edit">Edit</button>
+        <button class="btn small danger remove">Remove</button>
+      </span>
+    </li>
+  </template>
+
+  <template id="sectionTpl">
+    <li class="item-row">
+      <span class="item-name"></span>
+      <span class="item-actions">
+        <button class="btn small remove">Remove</button>
+      </span>
+    </li>
+  </template>
 
   <script src="script.js"></script>
 </body>
