@@ -1,86 +1,216 @@
-let students = JSON.parse(localStorage.getItem("students")) || [];
+// script.js
+// Subjects & Sections manager (stores data in localStorage)
+// Data shape:
+// subjects = [{ id, name, sections: [{ id, name }] }, ...]
+// selectedSubjectId stored separately so selection persists
 
-function saveData() {
-  localStorage.setItem("students", JSON.stringify(students));
+const LS_KEY = 'attendance_subjects_v1';
+const LS_SEL = 'attendance_selected_subject_v1';
+
+let subjects = [];
+let selectedSubjectId = null;
+
+// UI refs
+const newSubjectName = document.getElementById('newSubjectName');
+const addSubjectBtn = document.getElementById('addSubjectBtn');
+const subjectsList = document.getElementById('subjectsList');
+
+const newSectionName = document.getElementById('newSectionName');
+const addSectionBtn = document.getElementById('addSectionBtn');
+const sectionsList = document.getElementById('sectionsList');
+
+const selectedSubjectName = document.getElementById('selectedSubjectName');
+
+const subjectTpl = document.getElementById('subjectTpl');
+const sectionTpl = document.getElementById('sectionTpl');
+
+const darkToggle = document.getElementById('darkToggle');
+
+// ----- storage -----
+function load() {
+  try {
+    subjects = JSON.parse(localStorage.getItem(LS_KEY)) || [];
+  } catch (e) {
+    subjects = [];
+  }
+  selectedSubjectId = localStorage.getItem(LS_SEL);
+}
+function save() {
+  localStorage.setItem(LS_KEY, JSON.stringify(subjects));
+  if (selectedSubjectId) localStorage.setItem(LS_SEL, selectedSubjectId);
+  else localStorage.removeItem(LS_SEL);
 }
 
-function renderTable() {
-  const tbody = document.querySelector("#studentTable tbody");
-  tbody.innerHTML = "";
+// ----- helpers -----
+function uid(prefix='id') {
+  return `${prefix}_${Date.now()}_${Math.floor(Math.random()*9000+1000)}`;
+}
+function findSubject(id) {
+  return subjects.find(s => s.id === id) || null;
+}
 
-  let search = document.getElementById("search").value.toLowerCase();
+// ----- render -----
+function renderSubjects() {
+  subjectsList.innerHTML = '';
+  if (subjects.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No subjects yet. Add one above.';
+    subjectsList.appendChild(li);
+    selectedSubjectName.textContent = 'None';
+    sectionsList.innerHTML = '';
+    return;
+  }
 
-  students
-    .filter(s => s.name.toLowerCase().includes(search) || s.roll.includes(search))
-    .forEach((s, i) => {
-      let percent = s.total > 0 ? Math.round((s.present / s.total) * 100) : 0;
-      let row = `
-        <tr class="${percent < 75 ? 'low' : 'high'}">
-          <td>${s.roll}</td>
-          <td>${s.name}</td>
-          <td>${s.present}</td>
-          <td>${s.total}</td>
-          <td>${percent}%</td>
-          <td>
-            <button onclick="markPresent(${i})">✔ Present</button>
-            <button onclick="markAbsent(${i})">✖ Absent</button>
-          </td>
-        </tr>
-      `;
-      tbody.innerHTML += row;
+  subjects.forEach(s => {
+    const node = subjectTpl.content.cloneNode(true);
+    const li = node.querySelector('li');
+    const nameEl = node.querySelector('.item-name');
+    const editBtn = node.querySelector('.edit');
+    const removeBtn = node.querySelector('.remove');
+
+    nameEl.textContent = s.name;
+    if (s.id === selectedSubjectId) {
+      li.style.background = 'linear-gradient(90deg, rgba(110,231,183,0.12), transparent)';
+      nameEl.style.fontWeight = '700';
+    }
+
+    // click selects subject
+    nameEl.style.cursor = 'pointer';
+    nameEl.addEventListener('click', () => {
+      selectSubject(s.id);
     });
-}
 
-function addStudent() {
-  let roll = document.getElementById("roll").value;
-  let name = document.getElementById("name").value;
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const nn = prompt('Edit subject name', s.name);
+      if (nn && nn.trim()) {
+        s.name = nn.trim();
+        save(); renderSubjects(); if (s.id === selectedSubjectId) renderSections();
+      }
+    });
 
-  if (roll && name) {
-    students.push({ roll, name, present: 0, total: 0 });
-    saveData();
-    renderTable();
-    document.getElementById("roll").value = "";
-    document.getElementById("name").value = "";
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!confirm(`Remove subject "${s.name}" and all its sections?`)) return;
+      subjects = subjects.filter(x => x.id !== s.id);
+      if (s.id === selectedSubjectId) selectedSubjectId = null;
+      save(); renderSubjects(); renderSections();
+    });
+
+    subjectsList.appendChild(node);
+  });
+
+  // if nothing selected, auto-select first
+  if (!selectedSubjectId && subjects.length) {
+    selectSubject(subjects[0].id);
+  } else {
+    selectedSubjectName.textContent = (findSubject(selectedSubjectId) || {name:'None'}).name;
   }
 }
 
-function markPresent(i) {
-  students[i].present++;
-  students[i].total++;
-  saveData();
-  renderTable();
-}
+function renderSections() {
+  sectionsList.innerHTML = '';
+  const subject = findSubject(selectedSubjectId);
+  if (!subject) {
+    selectedSubjectName.textContent = 'None';
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'Select a subject to see its sections.';
+    sectionsList.appendChild(li);
+    return;
+  }
 
-function markAbsent(i) {
-  students[i].total++;
-  saveData();
-  renderTable();
-}
+  selectedSubjectName.textContent = subject.name;
 
-document.getElementById("addStudent").addEventListener("click", addStudent);
-document.getElementById("search").addEventListener("input", renderTable);
-document.getElementById("sortByRoll").addEventListener("click", () => {
-  students.sort((a,b) => a.roll.localeCompare(b.roll));
-  renderTable();
-});
-document.getElementById("sortByAttendance").addEventListener("click", () => {
-  students.sort((a,b) => ((b.present/b.total)||0) - ((a.present/a.total)||0));
-  renderTable();
-});
-document.getElementById("exportCSV").addEventListener("click", () => {
-  let csv = "Roll,Name,Present,Total,Percentage\n";
-  students.forEach(s => {
-    let percent = s.total>0 ? Math.round((s.present/s.total)*100) : 0;
-    csv += `${s.roll},${s.name},${s.present},${s.total},${percent}%\n`;
+  if (!subject.sections || subject.sections.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No sections yet. Add a section below.';
+    sectionsList.appendChild(li);
+    return;
+  }
+
+  subject.sections.forEach(sec => {
+    const node = sectionTpl.content.cloneNode(true);
+    const li = node.querySelector('li');
+    const nameEl = node.querySelector('.item-name');
+    const removeBtn = node.querySelector('.remove');
+
+    nameEl.textContent = sec.name;
+
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!confirm(`Remove section "${sec.name}" from subject "${subject.name}"?`)) return;
+      subject.sections = subject.sections.filter(x => x.id !== sec.id);
+      save(); renderSections(); renderSubjects();
+    });
+
+    // future: click to open students of this section
+    nameEl.style.cursor = 'pointer';
+    nameEl.addEventListener('click', () => {
+      // we'll implement section-level students in next steps
+      alert(`Open students for section "${sec.name}" (next step).`);
+    });
+
+    sectionsList.appendChild(node);
   });
-  let blob = new Blob([csv], { type: "text/csv" });
-  let link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "attendance.csv";
-  link.click();
-});
-document.getElementById("toggleMode").addEventListener("click", () => {
-  document.body.classList.toggle("dark");
+}
+
+// ----- actions -----
+function addSubject() {
+  const name = (newSubjectName.value || '').trim();
+  if (!name) { alert('Enter subject name'); return; }
+  // prevent duplicate names
+  if (subjects.some(s => s.name.toLowerCase() === name.toLowerCase())) {
+    alert('Subject with this name already exists');
+    return;
+  }
+  const s = { id: uid('sub'), name, sections: [] };
+  subjects.push(s);
+  newSubjectName.value = '';
+  save();
+  selectSubject(s.id);
+  renderSubjects();
+}
+
+function selectSubject(id) {
+  selectedSubjectId = id;
+  save();
+  renderSubjects();
+  renderSections();
+}
+
+function addSection() {
+  const name = (newSectionName.value || '').trim();
+  if (!name) { alert('Enter section name'); return; }
+  const subj = findSubject(selectedSubjectId);
+  if (!subj) { alert('Select a subject first'); return; }
+  if (!subj.sections) subj.sections = [];
+  if (subj.sections.some(x => x.name.toLowerCase() === name.toLowerCase())) {
+    alert('Section with this name already exists in selected subject');
+    return;
+  }
+  subj.sections.push({ id: uid('sec'), name });
+  newSectionName.value = '';
+  save();
+  renderSections();
+  renderSubjects();
+}
+
+// ----- bindings -----
+addSubjectBtn.addEventListener('click', addSubject);
+addSectionBtn.addEventListener('click', addSection);
+
+newSubjectName.addEventListener('keydown', (e) => { if (e.key === 'Enter') addSubject(); });
+newSectionName.addEventListener('keydown', (e) => { if (e.key === 'Enter') addSection(); });
+
+darkToggle && darkToggle.addEventListener('click', () => {
+  document.body.classList.toggle('dark');
+  darkToggle.textContent = document.body.classList.contains('dark') ? 'Light' : 'Dark';
 });
 
-renderTable();
+// ----- init -----
+load();
+renderSubjects();
+renderSections();
