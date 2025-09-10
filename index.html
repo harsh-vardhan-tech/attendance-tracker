@@ -1,93 +1,130 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>College Attendance Tracker</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Attendance Tracker</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">Attendance Tracker</div>
+      <div class="small-muted">Mobile friendly • Multi-date • LocalStorage</div>
+    </header>
 
-<header class="topbar">
-  <div class="brand">Attendance Tracker</div>
-  <div class="actions">
-    <button id="darkToggle" class="btn small">Dark</button>
+    <main class="card wizard">
+      <!-- Step indicators -->
+      <div class="steps">
+        <div class="step active" data-step="1">1. Subject</div>
+        <div class="step" data-step="2">2. Class</div>
+        <div class="step" data-step="3">3. Students</div>
+        <div class="step" data-step="4">4. Mark</div>
+        <div class="step" data-step="5">5. Summary</div>
+      </div>
+
+      <!-- Step 1: Subject + Teacher + Date -->
+      <section class="step-panel" id="step-1">
+        <h2>Subject & Teacher</h2>
+        <div class="row">
+          <label>Subject</label>
+          <input id="subject" placeholder="e.g. Data Structures" />
+        </div>
+        <div class="row">
+          <label>Teacher</label>
+          <input id="teacher" placeholder="Teacher name" />
+        </div>
+        <div class="row">
+          <label>Date</label>
+          <input id="date" type="date" />
+        </div>
+        <div class="row actions">
+          <button id="next-1" class="btn primary">Next</button>
+        </div>
+      </section>
+
+      <!-- Step 2: Year/Sem/Class/Section -->
+      <section class="step-panel hide" id="step-2">
+        <h2>Class Info</h2>
+        <div class="row">
+          <label>Year</label>
+          <select id="year"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+        </div>
+        <div class="row">
+          <label>Semester</label>
+          <select id="semester"><option>1</option><option>2</option></select>
+        </div>
+        <div class="row">
+          <label>Class / Course No</label>
+          <input id="classNo" placeholder="e.g. CSE101" />
+        </div>
+        <div class="row">
+          <label>Section</label>
+          <div class="inline">
+            <select id="sectionSelect"></select>
+            <input id="newSection" placeholder="New section name" />
+            <button id="addSection" class="btn">Add</button>
+          </div>
+        </div>
+        <div class="row actions">
+          <button id="back-2" class="btn ghost">Back</button>
+          <button id="next-2" class="btn primary">Next</button>
+        </div>
+      </section>
+
+      <!-- Step 3: Student management -->
+      <section class="step-panel hide" id="step-3">
+        <h2>Students — Manage</h2>
+        <div class="row">
+          <input id="searchStudent" placeholder="Search student by name or roll" />
+          <input id="studentName" placeholder="Student name" />
+          <input id="studentRoll" placeholder="Roll no" />
+          <button id="addStudent" class="btn">Add</button>
+        </div>
+        <div id="studentsList" class="list"></div>
+        <div class="row actions">
+          <button id="back-3" class="btn ghost">Back</button>
+          <button id="next-3" class="btn primary">Next</button>
+        </div>
+      </section>
+
+      <!-- Step 4: Attendance marking -->
+      <section class="step-panel hide" id="step-4">
+        <h2>Mark Attendance — <span id="metaInfo"></span></h2>
+        <div class="row small-muted">Tap to toggle present/absent. Use search to find student.</div>
+        <div class="row">
+          <input id="searchMark" placeholder="Search to mark" />
+          <button id="markAllPresent" class="btn">Mark All Present</button>
+          <button id="markAllAbsent" class="btn ghost">Mark All Absent</button>
+        </div>
+        <div id="markList" class="list"></div>
+        <div class="row actions">
+          <button id="back-4" class="btn ghost">Back</button>
+          <button id="next-4" class="btn primary">Next</button>
+        </div>
+      </section>
+
+      <!-- Step 5: Summary + Export -->
+      <section class="step-panel hide" id="step-5">
+        <h2>Summary</h2>
+        <div id="summary" class="summary-box"></div>
+        <div class="row actions">
+          <button id="back-5" class="btn ghost">Back</button>
+          <button id="save" class="btn">Save</button>
+          <button id="downloadCSV" class="btn primary">Download CSV</button>
+        </div>
+        <div class="row">
+          <label>Saved Records</label>
+          <select id="savedRecords"></select>
+          <button id="loadRecord" class="btn ghost">Load</button>
+          <button id="deleteRecord" class="btn ghost">Delete</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot muted">Tip: Saved data stored in browser. For multi-user/cloud use, connect a backend (Firebase/Node + DB).</footer>
   </div>
-</header>
 
-<main class="container">
-  <aside class="sidebar">
-    <div class="card">
-      <h3>Subjects</h3>
-      <div class="form-row">
-        <input id="newSubjectName" placeholder="New subject name (eg. DSA)" />
-        <button id="addSubjectBtn" class="btn">Add</button>
-      </div>
-      <ul id="subjectsList" class="simple-list"></ul>
-    </div>
-
-    <div class="card small">
-      <h4>Selected Subject</h4>
-      <div id="selectedSubjectName" class="muted">None</div>
-      <hr/>
-      <h4>Sections</h4>
-      <div class="form-row">
-        <input id="newSectionName" placeholder="Section name (eg. A)" />
-        <button id="addSectionBtn" class="btn">Add</button>
-      </div>
-      <ul id="sectionsList" class="simple-list"></ul>
-    </div>
-  </aside>
-
-  <section class="mainpanel">
-    <div class="card">
-      <h2>Students & Attendance</h2>
-      <p class="muted">Select a section to add students and mark attendance.</p>
-
-      <div class="form-row">
-        <input id="studentRoll" placeholder="Roll No" style="max-width:100px" />
-        <input id="studentName" placeholder="Student Name" />
-        <button id="addStudentBtn" class="btn">Add Student</button>
-      </div>
-
-      <div class="form-row">
-        <label for="attendanceDate">Select Date:</label>
-        <input type="date" id="attendanceDate" />
-      </div>
-
-      <div id="attendanceStats" class="muted"></div>
-      <ul id="studentsList" class="simple-list"></ul>
-    </div>
-
-    <div class="card footer-card">
-      <p>Made with ❤️ by Harsh Vardhan</p>
-      <p>
-        <a href="https://github.com/harsh-vardhan-tech" target="_blank">GitHub</a> |
-        <a href="https://in.linkedin.com/in/harsh-vardhan-tech" target="_blank">LinkedIn</a>
-      </p>
-    </div>
-  </section>
-</main>
-
-<template id="subjectTpl">
-  <li class="item-row">
-    <span class="item-name"></span>
-    <span class="item-actions">
-      <button class="btn small edit">Edit</button>
-      <button class="btn small danger remove">Remove</button>
-    </span>
-  </li>
-</template>
-
-<template id="sectionTpl">
-  <li class="item-row">
-    <span class="item-name"></span>
-    <span class="item-actions">
-      <button class="btn small remove">Remove</button>
-    </span>
-  </li>
-</template>
-
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
