@@ -1,167 +1,269 @@
-// ----- JS for College Attendance Tracker -----
+// Simple Attendance Tracker using localStorage
+// Data model stored under key: attendance_app_data
 
-// ----- LocalStorage Keys -----
-const LS_KEY = 'attendance_subjects_v1';
-const LS_SEL = 'attendance_selected_subject_v1';
-const LS_SEC = 'attendance_selected_section_v1';
-const LS_DATE = 'attendance_selected_date_v1';
+const STORAGE_KEY = 'attendance_app_data_v1';
+const state = {
+  step: 1,
+  meta: { subject:'', teacher:'', date:'', year:'1', semester:'1', classNo:'', section:'' },
+  sections: {}, // { sectionName: [ {name, roll} ] }
+  students: [], // current section students
+  marks: {}, // roll -> present(true)/absent(false)
+};
 
-// ----- Data -----
-let subjects = [];
-let selectedSubjectId = null;
-let selectedSectionId = null;
-let selectedDate = null;
+function qs(sel){ return document.querySelector(sel); }
+function qsa(sel){ return Array.from(document.querySelectorAll(sel)); }
 
-// ----- UI Elements -----
-const newSubjectName = document.getElementById('newSubjectName');
-const addSubjectBtn = document.getElementById('addSubjectBtn');
-const subjectsList = document.getElementById('subjectsList');
-
-const newSectionName = document.getElementById('newSectionName');
-const addSectionBtn = document.getElementById('addSectionBtn');
-const sectionsList = document.getElementById('sectionsList');
-
-const attendanceDate = document.getElementById('attendanceDate');
-const studentsList = document.getElementById('studentsList');
-const stats = document.getElementById('stats');
-
-const studentRoll = document.getElementById('studentRoll');
-const studentName = document.getElementById('studentName');
-const addStudentBtn = document.getElementById('addStudentBtn');
-
-const subjectTpl = document.getElementById('subjectTpl');
-const sectionTpl = document.getElementById('sectionTpl');
-const studentTpl = document.getElementById('studentTpl');
-
-const darkToggle = document.getElementById('darkToggle');
-
-// ----- Helpers -----
-function uid(prefix = 'id') {
-    return `${prefix}_${Date.now()}_${Math.floor(Math.random() * 9000 + 1000)}`;
+function saveToStorage(obj){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
 }
-function findSubject(id) { return subjects.find(s => s.id === id) || null; }
-function findSection(subj, secId) { return subj.sections.find(s => s.id === secId) || null; }
-
-// ----- LocalStorage -----
-function load() {
-    try { subjects = JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch (e) { subjects = []; }
-    selectedSubjectId = localStorage.getItem(LS_SEL);
-    selectedSectionId = localStorage.getItem(LS_SEC);
-    selectedDate = localStorage.getItem(LS_DATE) || new Date().toISOString().split('T')[0];
-    attendanceDate.value = selectedDate;
-}
-function save() {
-    localStorage.setItem(LS_KEY, JSON.stringify(subjects));
-    if (selectedSubjectId) localStorage.setItem(LS_SEL, selectedSubjectId); else localStorage.removeItem(LS_SEL);
-    if (selectedSectionId) localStorage.setItem(LS_SEC, selectedSectionId); else localStorage.removeItem(LS_SEC);
-    if (selectedDate) localStorage.setItem(LS_DATE, selectedDate); else localStorage.removeItem(LS_DATE);
+function loadFromStorage(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return { sections: {}, records: [] };
+    return JSON.parse(raw);
+  }catch(e){ return { sections:{}, records: [] }; }
 }
 
-// ----- Render Subjects -----
-function renderSubjects() {
-    subjectsList.innerHTML = '';
-    if (subjects.length === 0) {
-        const li = document.createElement('li'); li.className = 'muted'; li.textContent = 'No subjects yet.'; subjectsList.appendChild(li); return;
-    }
-    subjects.forEach(s => {
-        const node = subjectTpl.content.cloneNode(true);
-        const li = node.querySelector('li'); const nameEl = node.querySelector('.item-name');
-        const editBtn = node.querySelector('.edit'); const removeBtn = node.querySelector('.remove');
-        nameEl.textContent = s.name;
-        if (s.id === selectedSubjectId) { li.style.background = 'rgba(110,231,183,0.12)'; nameEl.style.fontWeight = '700'; }
-        nameEl.style.cursor = 'pointer';
-        nameEl.addEventListener('click', () => { selectSubject(s.id); });
-        editBtn.addEventListener('click', e => {
-            e.stopPropagation();
-            const nn = prompt('Edit subject name', s.name);
-            if (nn && nn.trim()) { s.name = nn.trim(); save(); renderSubjects(); if (s.id === selectedSubjectId) renderSections(); }
-        });
-        removeBtn.addEventListener('click', e => {
-            e.stopPropagation();
-            if (!confirm(`Remove subject "${s.name}"?`)) return;
-            subjects = subjects.filter(x => x.id !== s.id);
-            if (selectedSubjectId === s.id) selectedSubjectId = null;
-            save(); renderSubjects(); renderSections();
-        });
-        subjectsList.appendChild(node);
+// initialize storage structure if missing
+let store = loadFromStorage();
+if(!store.sections) store.sections = {};
+if(!store.records) store.records = []; // each record saved
+
+// UI binders
+const steps = qsa('.step');
+function setStep(n){
+  state.step = n;
+  qsa('.step-panel').forEach(s=>s.classList.add('hide'));
+  qs('#step-'+n).classList.remove('hide');
+  steps.forEach(s=> s.classList.toggle('active', +s.dataset.step === n));
+}
+setStep(1);
+
+// Step 1 controls
+qs('#next-1').addEventListener('click', ()=>{
+  const subject = qs('#subject').value.trim();
+  const teacher = qs('#teacher').value.trim();
+  const date = qs('#date').value;
+  if(!subject || !teacher || !date){ alert('Please fill subject, teacher and date'); return; }
+  state.meta.subject = subject; state.meta.teacher = teacher; state.meta.date = date;
+  qs('#metaInfo').textContent = `${subject} • ${date}`;
+  setStep(2);
+  populateSections();
+});
+
+// Step 2 controls
+function populateSections(){
+  const sel = qs('#sectionSelect');
+  sel.innerHTML = '';
+  Object.keys(store.sections || {}).forEach(s=>{
+    const opt = document.createElement('option'); opt.value = s; opt.textContent = s;
+    sel.appendChild(opt);
+  });
+  // if none exist, create Default
+  if(!sel.children.length){
+    store.sections['A'] = store.sections['A'] || [];
+    saveToStorage(store);
+    populateSections();
+    return;
+  }
+  if(!state.meta.section) state.meta.section = sel.value;
+}
+qs('#addSection').addEventListener('click', ()=>{
+  const name = qs('#newSection').value.trim();
+  if(!name) return alert('Enter section name');
+  if(!store.sections[name]) store.sections[name] = [];
+  saveToStorage(store);
+  qs('#newSection').value='';
+  populateSections();
+});
+qs('#back-2').addEventListener('click', ()=> setStep(1));
+qs('#next-2').addEventListener('click', ()=>{
+  state.meta.year = qs('#year').value;
+  state.meta.semester = qs('#semester').value;
+  state.meta.classNo = qs('#classNo').value.trim();
+  state.meta.section = qs('#sectionSelect').value;
+  // load students for section
+  state.students = (store.sections[state.meta.section] || []).map(s=>({name:s.name, roll:s.roll}));
+  renderStudentsList();
+  setStep(3);
+});
+
+// Step 3 - Student management
+function renderStudentsList(filter=''){
+  const list = qs('#studentsList');
+  list.innerHTML = '';
+  const f = filter.trim().toLowerCase();
+  state.students.forEach(s=>{
+    if(f && !(s.name.toLowerCase().includes(f) || (s.roll||'').toLowerCase().includes(f))) return;
+    const item = document.createElement('div'); item.className='item';
+    const meta = document.createElement('div'); meta.className='meta'; meta.innerHTML = `<strong>${s.name}</strong><div class="muted">${s.roll || ''}</div>`;
+    const actions = document.createElement('div'); actions.className='actions';
+    const del = document.createElement('button'); del.textContent='Delete'; del.className='btn ghost';
+    del.addEventListener('click', ()=>{
+      if(!confirm('Remove student?')) return;
+      state.students = state.students.filter(x=> x.roll !== s.roll);
+      saveSection();
+      renderStudentsList();
     });
-    if (!selectedSubjectId && subjects.length) selectSubject(subjects[0].id);
+    actions.appendChild(del);
+    item.appendChild(meta); item.appendChild(actions);
+    list.appendChild(item);
+  });
+  if(!list.children.length) list.innerHTML = '<div class="muted">No students. Add using form above.</div>';
 }
+function saveSection(){
+  store.sections[state.meta.section] = state.students.map(x=>({name:x.name, roll:x.roll}));
+  saveToStorage(store);
+}
+qs('#addStudent').addEventListener('click', ()=>{
+  const name = qs('#studentName').value.trim();
+  const roll = qs('#studentRoll').value.trim();
+  if(!name) return alert('Enter student name');
+  // avoid duplicate roll
+  if(roll && state.students.some(s=>s.roll===roll)) return alert('Roll already exists');
+  state.students.push({name, roll});
+  qs('#studentName').value=''; qs('#studentRoll').value='';
+  saveSection();
+  renderStudentsList();
+});
+qs('#searchStudent').addEventListener('input', (e)=> renderStudentsList(e.target.value));
+qs('#back-3').addEventListener('click', ()=> setStep(2));
+qs('#next-3').addEventListener('click', ()=>{
+  // prepare marks for each student default present=false
+  state.marks = {};
+  state.students.forEach(s=> state.marks[s.roll || s.name] = false);
+  renderMarkList();
+  qs('#metaInfo').textContent = `${state.meta.subject} • ${state.meta.classNo} • Sec ${state.meta.section} • ${state.meta.date}`;
+  setStep(4);
+});
 
-// ----- Render Sections -----
-function renderSections() {
-    sectionsList.innerHTML = '';
-    const subj = findSubject(selectedSubjectId); if (!subj) { renderStudents(); return; }
-    if (!subj.sections || subj.sections.length === 0) { const li = document.createElement('li'); li.className = 'muted'; li.textContent = 'No sections yet.'; sectionsList.appendChild(li); renderStudents(); return; }
-    subj.sections.forEach(sec => {
-        const node = sectionTpl.content.cloneNode(true);
-        const li = node.querySelector('li'); const nameEl = node.querySelector('.item-name'); const removeBtn = node.querySelector('.remove');
-        nameEl.textContent = sec.name;
-        removeBtn.addEventListener('click', e => {
-            e.stopPropagation();
-            if (!confirm(`Remove section "${sec.name}"?`)) return;
-            subj.sections = subj.sections.filter(x => x.id !== sec.id);
-            if (selectedSectionId === sec.id) selectedSectionId = null;
-            save(); renderSections(); renderStudents();
-        });
-        nameEl.style.cursor = 'pointer';
-        nameEl.addEventListener('click', () => { selectedSectionId = sec.id; save(); renderSections(); renderStudents(); });
-        if (sec.id === selectedSectionId) { li.style.background = 'rgba(59,130,246,0.12)'; nameEl.style.fontWeight = '700'; }
-        sectionsList.appendChild(node);
+// Step 4 - Marking UI
+function renderMarkList(filter=''){
+  const list = qs('#markList'); list.innerHTML='';
+  const f = filter.trim().toLowerCase();
+  state.students.forEach(s=>{
+    if(f && !(s.name.toLowerCase().includes(f) || (s.roll||'').toLowerCase().includes(f))) return;
+    const key = s.roll || s.name;
+    const item = document.createElement('div'); item.className='item ' + (state.marks[key] ? 'present' : 'absent');
+    const meta = document.createElement('div'); meta.className='meta';
+    meta.innerHTML = `<strong>${s.name}</strong><div class="muted">${s.roll || ''}</div>`;
+    const actions = document.createElement('div'); actions.className='actions';
+    const toggle = document.createElement('button'); toggle.textContent = state.marks[key] ? 'Present' : 'Absent'; toggle.className='btn';
+    toggle.addEventListener('click', ()=>{
+      state.marks[key] = !state.marks[key];
+      renderMarkList(qs('#searchMark').value);
     });
-    renderStudents();
+    actions.appendChild(toggle);
+    item.appendChild(meta); item.appendChild(actions);
+    list.appendChild(item);
+  });
+  if(!list.children.length) list.innerHTML = '<div class="muted">No students to mark.</div>';
 }
+qs('#searchMark').addEventListener('input', (e)=> renderMarkList(e.target.value));
+qs('#markAllPresent').addEventListener('click', ()=>{
+  state.students.forEach(s=> state.marks[s.roll || s.name] = true); renderMarkList();
+});
+qs('#markAllAbsent').addEventListener('click', ()=>{
+  state.students.forEach(s=> state.marks[s.roll || s.name] = false); renderMarkList();
+});
+qs('#back-4').addEventListener('click', ()=> setStep(3));
+qs('#next-4').addEventListener('click', ()=>{
+  // compute summary
+  setSummary();
+  setStep(5);
+});
 
-// ----- Render Students + Attendance -----
-function renderStudents() {
-    studentsList.innerHTML = '';
-    stats.textContent = '';
-    const subj = findSubject(selectedSubjectId); if (!subj) return;
-    const sec = findSection(subj, selectedSectionId); if (!sec) { studentsList.innerHTML = '<li class="muted">Select a section to see students.</li>'; return; }
-    if (!sec.students || sec.students.length === 0) { studentsList.innerHTML = '<li class="muted">No students in this section yet.</li>'; return; }
-    if (!sec.attendance) sec.attendance = {};
-    if (!sec.attendance[selectedDate]) sec.attendance[selectedDate] = {};
-
-    sec.students.forEach(st => {
-        const node = studentTpl.content.cloneNode(true);
-        const li = node.querySelector('li'); const nameEl = node.querySelector('.item-name');
-        const removeBtn = node.querySelector('.remove'); const tick = node.querySelector('.attendanceTick');
-        nameEl.textContent = `${st.roll} — ${st.name}`;
-        tick.checked = sec.attendance[selectedDate][st.id] || false;
-        tick.addEventListener('change', () => { sec.attendance[selectedDate][st.id] = tick.checked; save(); renderStats(); });
-        removeBtn.addEventListener('click', () => { if (!confirm(`Remove student ${st.name}?`)) return; sec.students = sec.students.filter(x => x.id !== st.id); for (let dt in sec.attendance) { delete sec.attendance[dt][st.id]; } save(); renderStudents(); });
-        studentsList.appendChild(node);
-    });
-    renderStats();
+// Step 5 - Summary & Save
+function setSummary(){
+  const total = state.students.length;
+  let presentCount = 0;
+  const rows = [];
+  state.students.forEach(s=>{
+    const key = s.roll || s.name;
+    const pres = !!state.marks[key];
+    if(pres) presentCount++;
+    rows.push({ name:s.name, roll:s.roll, present: pres ? 1 : 0 });
+  });
+  const pct = total ? Math.round((presentCount/total)*100) : 0;
+  const summaryEl = qs('#summary');
+  summaryEl.innerHTML = `<div>Total Students: ${total}</div>
+                         <div>Present: ${presentCount}</div>
+                         <div>Percentage: <strong style="color:${pct<75 ? '#fff' : '#a3e635'}">${pct}%</strong></div>
+                         ${pct<75 ? '<div style="color:#fda4af">Warning: less than 75%</div>' : ''}`;
+  // Keep last computed for download/save
+  state._lastExport = { meta: {...state.meta}, total, presentCount, pct, rows };
 }
+qs('#back-5').addEventListener('click', ()=> setStep(4));
+qs('#save').addEventListener('click', ()=>{
+  // push record to store.records
+  const rec = {
+    id: 'rec_' + Date.now(),
+    meta: {...state.meta},
+    rows: state._lastExport.rows,
+    total: state._lastExport.total,
+    present: state._lastExport.presentCount,
+    pct: state._lastExport.pct,
+    savedAt: new Date().toISOString()
+  };
+  store.records = store.records || [];
+  store.records.unshift(rec);
+  saveToStorage(store);
+  alert('Saved locally');
+  populateSavedRecords();
+});
+qs('#downloadCSV').addEventListener('click', ()=> {
+  const exp = state._lastExport;
+  if(!exp) return alert('No summary to download');
+  const lines = [];
+  lines.push(['Subject', exp.meta.subject]);
+  lines.push(['Teacher', exp.meta.teacher]);
+  lines.push(['Date', exp.meta.date]);
+  lines.push(['Class', exp.meta.classNo]);
+  lines.push([]);
+  lines.push(['Name','Roll','Present(1/0)']);
+  exp.rows.forEach(r=> lines.push([r.name || '', r.roll || '', r.present]));
+  // convert to CSV
+  const csv = lines.map(r => r.map(cell => `"${String(cell||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${exp.meta.subject}_${exp.meta.date}.csv`; a.click();
+});
 
-// ----- Stats -----
-function renderStats() {
-    const subj = findSubject(selectedSubjectId); if (!subj) return;
-    const sec = findSection(subj, selectedSectionId); if (!sec || !sec.students || sec.students.length === 0) { stats.textContent = ''; return; }
-    let totalClasses = Object.keys(sec.attendance || {}).length;
-    let statText = `Total Classes: ${totalClasses} | `;
-    statText += sec.students.map(st => {
-        let present = 0;
-        for (let dt in sec.attendance) { if (sec.attendance[dt][st.id]) present++; }
-        let perc = Math.round((present / totalClasses) * 100) || 0;
-        return `${st.roll}: ${perc}%${perc < 75 ? ' ⚠️' : ''}`;
-    }).join(' | ');
-    stats.textContent = statText;
+// populate saved records dropdown
+function populateSavedRecords(){
+  const sel = qs('#savedRecords'); sel.innerHTML='';
+  (store.records || []).forEach(r=>{
+    const opt = document.createElement('option'); opt.value = r.id; opt.textContent = `${r.meta.date} • ${r.meta.subject} • ${r.meta.classNo} • Sec ${r.meta.section}`;
+    sel.appendChild(opt);
+  });
 }
+qs('#loadRecord').addEventListener('click', ()=>{
+  const id = qs('#savedRecords').value;
+  if(!id) return alert('Choose saved record');
+  const rec = (store.records || []).find(r=>r.id === id);
+  if(!rec) return alert('Record not found');
+  // show record rows in summary area
+  const total = rec.total, present = rec.present;
+  const pct = rec.pct;
+  qs('#summary').innerHTML = `<div>Loaded record savedAt: ${rec.savedAt}</div>
+    <div>Total: ${total}</div><div>Present: ${present}</div><div>Percent: ${pct}%</div>
+    <div style="margin-top:8px"><strong>Students:</strong></div>
+    ${rec.rows.map(rr=>`<div>${rr.name} (${rr.roll||''}) - ${rr.present ? 'Present' : 'Absent'}</div>`).join('')}`;
+});
+qs('#deleteRecord').addEventListener('click', ()=>{
+  const id = qs('#savedRecords').value;
+  if(!id) return alert('Choose saved record');
+  if(!confirm('Delete record?')) return;
+  store.records = (store.records||[]).filter(r=>r.id!==id);
+  saveToStorage(store);
+  populateSavedRecords();
+});
 
-// ----- Actions -----
-function addSubject() { const name = (newSubjectName.value || '').trim(); if (!name) { alert('Enter subject'); return; } if (subjects.some(s => s.name.toLowerCase() === name.toLowerCase())) { alert('Exists'); return; } subjects.push({ id: uid('sub'), name, sections: [] }); newSubjectName.value = ''; save(); renderSubjects(); }
-function selectSubject(id) { selectedSubjectId = id; selectedSectionId = null; save(); renderSubjects(); renderSections(); }
-function addSection() { const name = (newSectionName.value || '').trim(); if (!name) { alert('Enter section'); return; } const subj = findSubject(selectedSubjectId); if (!subj) { alert('Select subject'); return; } if (subj.sections.some(x => x.name.toLowerCase() === name.toLowerCase())) { alert('Exists'); return; } subj.sections.push({ id: uid('sec'), name, students: [], attendance: {} }); newSectionName.value = ''; save(); renderSections(); renderSubjects(); }
-function addStudent() { const roll = (studentRoll.value || '').trim(); const name = (studentName.value || '').trim(); if (!roll || !name) { alert('Enter both roll and name'); return; } const subj = findSubject(selectedSubjectId); if (!subj) return; const sec = findSection(subj, selectedSectionId); if (!sec) return; if (sec.students.some(s => s.roll === roll)) { alert('Roll exists'); return; } sec.students.push({ id: uid('stu'), roll, name }); studentRoll.value = ''; studentName.value = ''; save(); renderStudents(); }
-
-// ----- Event Bindings -----
-addSubjectBtn.addEventListener('click', () => { addSubject(); renderSections(); });
-addSectionBtn.addEventListener('click', () => { addSection(); });
-addStudentBtn.addEventListener('click', () => { addStudent(); });
-attendanceDate.addEventListener('change', () => { selectedDate = attendanceDate.value; save(); renderStudents(); });
-darkToggle.addEventListener('click', () => { document.body.classList.toggle('dark'); darkToggle.textContent = document.body.classList.contains('dark') ? 'Light' : 'Dark'; });
-
-// ----- Init -----
-load(); renderSubjects(); renderSections();
+// initial populate
+(function init(){
+  // default date = today
+  const d = new Date(); qs('#date').value = d.toISOString().slice(0,10);
+  // load sections into state
+  state.sections = store.sections || {};
+  populateSections();
+  populateSavedRecords();
+})();
